@@ -17,6 +17,11 @@ class AuthController extends Controller
     
         $request->validate([
             'name' => 'required|string|max:255',
+            'phone' => 'required|string|unique:users',
+            'company_name' => 'required|string|max:255',
+            'country' => 'required|string|max:255',
+            'address' => 'required|string|max:255',
+            'port' => 'required|string|max:255',
             'email' => 'required|email|unique:users',
             'password' => 'required|string|min:6',
             'role' => 'required|string|exists:roles,name',
@@ -27,6 +32,11 @@ class AuthController extends Controller
         $user = User::create([
             'name' => $request->name,
             'email' => $request->email,
+            'phone' => $request->phone,
+            'company_name' => $request->company_name,
+            'country' => $request->country,
+            'address' => $request->address,
+            'port' => $request->port,
             'password' => Hash::make($request->password),
         ]);
     
@@ -38,7 +48,7 @@ class AuthController extends Controller
     
         return response()->json([
             'message' => 'تم تسجيل المستخدم بنجاح!',
-            'user' => $user->only(['id', 'name', 'email']),
+            'user' => $user->only(['id', 'name', 'email','phone','company_name','country','address','port']),
             'role' => $user->getRoleNames(),
             'permissions' => $user->getAllPermissions()->pluck('name')
         ]);
@@ -69,5 +79,42 @@ class AuthController extends Controller
         $request->user()->tokens()->delete();
 
         return response()->json(['message' => 'تم تسجيل الخروج بنجاح']);
+    }
+
+
+    public function registeragent(Request $request)
+    {
+     
+    
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'phone' => 'required|string|max:255',
+            'company_name' => 'required|string|max:255',
+            'country' => 'required|string|max:255',
+            'address' => 'required|string|max:255',
+            'port' => 'required|string|max:255',
+            'email' => 'required|email|unique:users',
+            'password' => 'required|string|min:6',
+        ]);
+    
+        $user = User::create([
+            'name' => $request->name,
+            'email' => $request->email,
+            'phone' => $request->phone,
+            'company_name' => $request->company_name,
+            'country' => $request->country,
+            'address' => $request->address,
+            'port' => $request->port,
+            'password' => Hash::make($request->password),
+        ]);
+    
+        $user->assignRole('agent');
+    
+      
+        return response()->json([
+            'message' => 'تم تسجيل المستخدم بنجاح!',
+            'user' => $user->only(['id', 'name', 'email','phone','company_name','country','address','port']),
+            'role' => $user->getRoleNames(),
+        ]);
     }
 }

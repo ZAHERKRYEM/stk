@@ -35,6 +35,7 @@ class DatabaseSeeder extends Seeder
         'name' => 'superadmin',
         'email' => 'superadmin@gmail.com',
         'password' => Hash::make('superadmin'),
+        'phone'=>'963111111111'
     ]);
     $superAdmin->assignRole('superadmin');
     $superAdmin->syncPermissions($permissions);
