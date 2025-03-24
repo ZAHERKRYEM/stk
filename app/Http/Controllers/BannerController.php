@@ -32,7 +32,7 @@ class BannerController extends Controller
         try {
             $validator = Validator::make($request->all(), [
                 'image' => 'required|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
-                'is_active' => 'required|boolean', // 👈 Adding is_active here
+                'is_active' => 'nullable|boolean', // 👈 Adding is_active here
             ]);
 
             if ($validator->fails()) {
@@ -67,7 +67,7 @@ class BannerController extends Controller
         try {
             $validator = Validator::make($request->all(), [
                 'image' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
-                'is_active' => 'required|boolean', // 👈 Adding is_active here
+                'is_active' => 'nullable|boolean', // 👈 Adding is_active here
             ]);
 
             if ($validator->fails()) {
