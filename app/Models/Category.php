@@ -26,9 +26,8 @@ class Category extends Model implements HasMedia
 
     public function products()
     {
-    return $this->hasMany(Product::class);
+        return $this->hasMany(Product::class);
     }
-
 
     public function registerMediaCollections(): void
     {
@@ -42,6 +41,21 @@ class Category extends Model implements HasMedia
             ->format('webp')
             ->nonQueued();
     }
+
+    protected static function booted()
+{
+    static::saved(function ($model) {
+        //  Get the first media from the 'categories' collection
+        $media = $model->getFirstMedia('categories');
+        if ($media) {
+            $originalPath = $media->getPath(); // Get the original file path
+            if (file_exists($originalPath)) {
+                unlink($originalPath); //  Delete the original image after conversion
+            }
+        }
+    });
+}
+
 
 
 }

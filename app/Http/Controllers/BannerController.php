@@ -15,7 +15,7 @@ class BannerController extends Controller
             $banners = Banner::where('is_active', true)->get()->map(function ($banner) {
                 return [
                     'id' => $banner->id,
-                    'is_active' => $banner->is_active, // 👈 Adding is_active here
+                    'is_active' => $banner->is_active, //  Adding is_active here
                     'image_url' => $banner->getFirstMediaUrl('banners', 'webp') ?: $banner->getFirstMediaUrl('banners'),
                 ];
             });
@@ -32,7 +32,7 @@ class BannerController extends Controller
         try {
             $validator = Validator::make($request->all(), [
                 'image' => 'required|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
-                'is_active' => 'nullable|boolean', // 👈 Adding is_active here
+                'is_active' => 'nullable|boolean', //  Adding is_active here
             ]);
 
             if ($validator->fails()) {
@@ -75,7 +75,7 @@ class BannerController extends Controller
             }
 
             $banner->update([
-                'is_active' => $request->is_active, // 👈 Adding is_active here
+                'is_active' => $request->is_active, //  Adding is_active here
             ]);
 
             if ($request->hasFile('image')) {
@@ -86,7 +86,7 @@ class BannerController extends Controller
 
             return $this->successResponse('Banner updated successfully', [
                 'id' => $banner->id,
-                'is_active' => $banner->is_active, // 👈 Adding is_active here
+                'is_active' => $banner->is_active, //  Adding is_active here
                 'image_url' => $banner->getFirstMediaUrl('banners', 'webp') ?: $banner->getFirstMediaUrl('banners'),
             ]);
         } catch (\Throwable $e) {
@@ -94,7 +94,7 @@ class BannerController extends Controller
         }
     }
 
-    // ✅ Delete a banner
+    //  Delete a banner
     public function destroy(Banner $banner)
     {
         try {
