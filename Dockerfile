@@ -2,14 +2,7 @@ FROM richarvey/nginx-php-fpm:3.1.6
 
 
 
-RUN apt-get update && apt-get install -y \
-    libgd-dev \
-    && apt-get install -y \
-    libjpeg-dev \
-    libfreetype6-dev \
-    && docker-php-ext-configure gd --with-freetype --with-jpeg \
-    && docker-php-ext-install gd
-    
+
 COPY . .
 # Image config
 ENV SKIP_COMPOSER 1
