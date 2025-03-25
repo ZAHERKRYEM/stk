@@ -2,6 +2,11 @@ FROM richarvey/nginx-php-fpm:3.1.6
 
 COPY . .
 
+RUN apt-get update && apt-get install -y \
+    libgd-dev \
+    && docker-php-ext-configure gd --with-freetype --with-jpeg \
+    && docker-php-ext-install gd
+
 # Image config
 ENV SKIP_COMPOSER 1
 ENV WEBROOT /var/www/html/public

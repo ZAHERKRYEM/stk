@@ -23,32 +23,54 @@ class CategoryController extends Controller
     public function store(Request $request)
     {
         try {
+            //  Validate request data
             $validator = Validator::make($request->all(), [
                 'name_translations' => 'required|array',
                 'image_url' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
             ]);
-
+    
             if ($validator->fails()) {
                 return $this->validationErrorResponse($validator);
             }
-
-            if ($request->hasFile('image_url')) {
-                $imagePath = $request->file('image_url')->store('categories', 'public');
-            } else {
-                $imagePath = null;
+    
+            //  Check if the category name (in English) already exists
+            $nameEn = $request->name_translations['en'] ?? null;
+            if ($nameEn && Category::where('name_translations->en', $nameEn)->exists()) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Category name already exists',
+                    'data' => null,
+                    'status_code' => 422,
+                ], 422);
             }
-
+    
+            //  Create category without the image first
             $category = Category::create([
                 'name_translations' => $request->name_translations,
-                'image_url' => $imagePath,
             ]);
-
+    
+            if ($request->hasFile('image_url')) {
+                //  Add the image to the 'categories' collection
+                $category->addMedia($request->file('image_url'))
+                    ->toMediaCollection('categories');
+    
+                // Refresh the model to update data after saving the image
+                $category->refresh();
+    
+                //  Update 'image_url' with the converted WebP image URL
+                $category->update([
+                    'image_url' => $category->getFirstMediaUrl('categories', 'webp'),
+                ]);
+            }
+    
             return $this->successResponse('Category created successfully', $category, 201);
         } catch (\Throwable $e) {
             return $this->errorResponse($e);
         }
     }
-
+    
+    
+    
     public function show(Category $category)
     {
         $category->image_url = Storage::url($category->image_url);
