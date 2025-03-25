@@ -1,46 +1,16 @@
-<?php
+<?php  
 
-namespace App\Models;
+namespace App\Models;  
 
-use Illuminate\Database\Eloquent\Model;
-use Spatie\MediaLibrary\HasMedia;
-use Spatie\MediaLibrary\InteractsWithMedia;
-use Spatie\MediaLibrary\MediaCollections\Models\Media;
+use Illuminate\Database\Eloquent\Factories\HasFactory;  
+use Illuminate\Database\Eloquent\Model;  
 
-class Banner extends Model implements HasMedia
-{
-    use InteractsWithMedia;
+class Banner extends Model  
+{  
+    use HasFactory;  
 
-    protected $fillable = [
-        'is_active', // Banner status (active/inactive)
-    ];
-
-    public function registerMediaCollections(): void
-    {
-        // Banner images collection
-        $this->addMediaCollection('banners')
-            ->useDisk('public'); // Using 'public' disk
-    }
-
-    public function registerMediaConversions(?Media $media = null): void
-    {
-        $this->addMediaConversion('webp')
-        ->format('webp')
-        ->nonQueued()
-        ->performOnCollections('banners'); // Perform conversion on 'banners' collection
-    }
-    
-    // Delete the original image after conversion
-    protected static function booted()
-    {
-        static::saved(function ($model) {
-            $media = $model->getFirstMedia('banners');
-            if ($media) {
-                $originalPath = $media->getPath();
-                if (file_exists($originalPath)) {
-                    unlink($originalPath); // Delete the original image
-                }
-            }
-        });
-    }
-}
+    protected $fillable = [  
+        'is_active',  
+        'image_url',  
+    ];  
+}  

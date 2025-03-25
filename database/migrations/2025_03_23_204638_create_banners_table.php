@@ -12,8 +12,9 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('banners', function (Blueprint $table) {
-            $table->id();
-            $table->boolean('is_active')->nullable()->default(true); 
+            $table->id();  
+            $table->boolean('is_active')->nullable()->default(true);  
+            $table->string('image_url')->nullable();  
             $table->timestamps();
         });
     }

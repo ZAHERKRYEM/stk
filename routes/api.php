@@ -12,6 +12,7 @@ use App\Http\Controllers\BannerController;
 
 Route::middleware(['auth:sanctum', PermissionMiddleware::class . ':c-category'])->post('/categories', [CategoryController::class, 'store']);
 Route::get('/categories', [CategoryController::class, 'index']);
+Route::get('/categories/{id}', [CategoryController::class, 'show']);
 Route::middleware(['auth:sanctum', PermissionMiddleware::class . ':u-category'])->put('/categories/{id}', [CategoryController::class, 'update']);
 Route::middleware(['auth:sanctum', PermissionMiddleware::class . ':d-category'])->delete('/categories/{id}', [CategoryController::class, 'destroy']);
 
@@ -22,6 +23,7 @@ Route::middleware(['auth:sanctum', PermissionMiddleware::class . ':d-product'])-
 
 Route::middleware(['auth:sanctum', PermissionMiddleware::class .':c-banner'])->post('/banners', [BannerController::class, 'store']);
 Route::get('/banners', [BannerController::class, 'index']);
+Route::get('/banners/{id}', [BannerController::class, 'show']);
 Route::middleware(['auth:sanctum', PermissionMiddleware::class .':u-banner'])->put('/banners/{id}', [BannerController::class, 'update']);
 Route::middleware(['auth:sanctum', PermissionMiddleware::class .':d-banner'])->delete('/banners/{id}', [BannerController::class, 'destroy']);
 
