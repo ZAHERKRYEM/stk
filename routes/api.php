@@ -33,3 +33,25 @@ Route::post('/login', [AuthController::class, 'login']);
 Route::middleware('auth:sanctum')->post('/logout', [AuthController::class, 'logout']);
 Route::middleware(['auth:sanctum',SuperAdminMiddleware::class])->post('/register', [AuthController::class, 'register']);
 Route::post('/registeragent', [AuthController::class, 'registeragent']);
+
+
+use Illuminate\Support\Facades\Storage;
+
+Route::get('/server-files', function () {
+    $path = request('path', ''); // استقبال مسار معين أو افتراضي للمجلد الرئيسي في `storage/app`
+
+    // التحقق من وجود المجلد
+    if (!Storage::exists($path)) {
+        return response()->json(['error' => 'المجلد غير موجود'], 404);
+    }
+
+    // جلب الملفات والمجلدات
+    $files = Storage::files($path);
+    $directories = Storage::directories($path);
+
+    return response()->json([
+        'path' => $path,
+        'directories' => $directories,
+        'files' => $files,
+    ]);
+});
