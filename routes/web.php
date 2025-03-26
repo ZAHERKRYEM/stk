@@ -33,3 +33,22 @@ function getDirectoryTree($dir)
 
     return response()->json($result);
 }
+
+
+use Illuminate\Support\Facades\Artisan;
+
+Route::get('/run-storage-link', function () {
+    try {
+        Artisan::call('storage:link');
+        return response()->json([
+            'status' => true,
+            'message' => 'تم إنشاء الرابط الرمزي بنجاح! 🎯'
+        ]);
+    } catch (\Exception $e) {
+        return response()->json([
+            'status' => false,
+            'message' => 'حدث خطأ أثناء إنشاء الرابط الرمزي!',
+            'error' => $e->getMessage()
+        ], 500);
+    }
+});
