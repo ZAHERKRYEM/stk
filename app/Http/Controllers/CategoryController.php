@@ -4,8 +4,8 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
-use Illuminate\Support\Facades\Storage;
 use App\Models\Category;
+use Illuminate\Support\Str;
 
 class CategoryController extends Controller
 {
@@ -21,12 +21,14 @@ class CategoryController extends Controller
                 return $this->validationErrorResponse($validator);
             }
 
-            $imagePath = $request->hasFile('image') ? 
-                $request->file('image')->store('categories', 'public') : null;
+            $image = $request->file('image');
+            $imageName = Str::random(40).'.'.$image->getClientOriginalExtension();
+            $image->move(public_path('storage/categories'), $imageName);
+
 
             $category = Category::create([
                 'name_translations' => json_encode($request->name_translations, JSON_UNESCAPED_UNICODE),
-                'image_url' => $imagePath ? url('storage/' . $imagePath) : null,
+                'image_url' => 'storage/categories/' . $imageName,
             ]);
 
             return $this->successResponse('تم إنشاء الفئة بنجاح', $this->formatCategory($category), 201);
@@ -85,10 +87,16 @@ class CategoryController extends Controller
 
             if ($request->hasFile('image')) {
                 if ($category->image_url) {
-                    Storage::disk('public')->delete(str_replace(url('storage/') . '/', '', $category->image_url));
+                    $oldImagePath = public_path('storage/categories/' . basename($category->image_url));
+                    if (file_exists($oldImagePath)) {
+                        unlink($oldImagePath);
+                    }
                 }
-                $imagePath = $request->file('image')->store('categories', 'public');
-                $category->image_url = url('storage/' . $imagePath);
+
+                $image = $request->file('image');
+                $imageName = Str::random(40) . '.' . $image->getClientOriginalExtension();
+                $image->move(public_path('storage/categories'), $imageName);
+                $category->image_url = 'storage/categories/' . $imageName;
             }
 
             $category->save();
@@ -108,7 +116,10 @@ class CategoryController extends Controller
             }
 
             if ($category->image_url) {
-                Storage::disk('public')->delete(str_replace(url('storage/') . '/', '', $category->image_url));
+                $imagePath = public_path('storage/categories/' . basename($category->image_url));
+                if (file_exists($imagePath)) {
+                    unlink($imagePath);
+                }
             }
 
             $category->delete();
@@ -124,7 +135,7 @@ class CategoryController extends Controller
         return [
             'id' => $category->id,
             'name_translations' => json_decode($category->name_translations, true),
-            'image_url' => $category->image_url,
+            'image_url' => url($category->image_url),
             'created_at' => $category->created_at,
             'updated_at' => $category->updated_at,
         ];
