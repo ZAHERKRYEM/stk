@@ -4,9 +4,9 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
-use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\File;
 use App\Models\Banner;
-
+use Illuminate\Support\Str;
 class BannerController extends Controller
 {
     public function store(Request $request)
@@ -21,11 +21,13 @@ class BannerController extends Controller
                 return $this->validationErrorResponse($validator);
             }
 
-            $image_url = $request->file('image')->store('banners', 'public');
+            $image = $request->file('image');
+            $imageName = Str::random(40).'.'.$image->getClientOriginalExtension();
+            $image->move(public_path('storage/banners'), $imageName);
 
             $banner = Banner::create([
                 'is_active' => $request->input('is_active', true),
-                'image_url' => $image_url,
+                'image_url' => 'storage/banners/' . $imageName,
             ]);
 
             return $this->successResponse('تم رفع الصورة بنجاح', $this->formatBanner($banner), 201);
@@ -37,10 +39,7 @@ class BannerController extends Controller
     public function index()
     {
         try {
-            $banners = Banner::all()->map(function ($banner) {
-                return $this->formatBanner($banner);
-            });
-
+            $banners = Banner::all()->map(fn($banner) => $this->formatBanner($banner));
             return $this->successResponse('تم جلب الصور بنجاح', $banners);
         } catch (\Throwable $e) {
             return $this->errorResponse($e);
@@ -54,7 +53,6 @@ class BannerController extends Controller
             if (!$banner) {
                 return $this->errorResponse('لم يتم العثور على الصورة', 404);
             }
-
             return $this->successResponse('تم جلب الصورة بنجاح', $this->formatBanner($banner));
         } catch (\Throwable $e) {
             return $this->errorResponse($e);
@@ -79,9 +77,13 @@ class BannerController extends Controller
             }
 
             if ($request->hasFile('image')) {
-                Storage::disk('public')->delete($banner->image_path);
-                $imagePath = $request->file('image')->store('banners', 'public');
-                $banner->image_url = $imagePath;
+                if (file_exists(public_path($banner->image_url))) {
+                    unlink(public_path($banner->image_url));
+                }
+                $image = $request->file('image');
+                $imageName = Str::random(40).'.'.$image->getClientOriginalExtension();
+                $image->move(public_path('storage/banners'), $imageName);
+                $banner->image_url = 'storage/banners/' . $imageName;
             }
 
             if ($request->has('is_active')) {
@@ -104,7 +106,9 @@ class BannerController extends Controller
                 return $this->errorResponse('لم يتم العثور على الصورة', 404);
             }
 
-            Storage::disk('public')->delete($banner->image_path);
+            if (file_exists(public_path($banner->image_url))) {
+                unlink(public_path($banner->image_url));
+            }
             $banner->delete();
 
             return $this->successResponse('تم حذف الصورة بنجاح');
@@ -118,7 +122,7 @@ class BannerController extends Controller
         return [
             'id' => $banner->id,
             'is_active' => $banner->is_active,
-            'image_url' => url('storage/' . $banner->image_url),
+            'image_url' => url($banner->image_url),
             'created_at' => $banner->created_at,
             'updated_at' => $banner->updated_at,
         ];
