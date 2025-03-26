@@ -31,3 +31,14 @@ Route::post('/login', [AuthController::class, 'login']);
 Route::middleware('auth:sanctum')->post('/logout', [AuthController::class, 'logout']);
 Route::middleware(['auth:sanctum',SuperAdminMiddleware::class])->post('/register', [AuthController::class, 'register']);
 Route::post('/registeragent', [AuthController::class, 'registeragent']);
+
+
+use App\Http\Controllers\ProductVariantController;
+
+Route::prefix('products/{product}/variants')->group(function () {
+    Route::get('/', [ProductVariantController::class, 'index']); // List variants
+    Route::post('/', [ProductVariantController::class, 'store']); // Create a new variant
+    Route::get('/{variant}', [ProductVariantController::class, 'show']); // Show a specific variant
+    Route::put('/{variant}', [ProductVariantController::class, 'update']); // Update a variant
+    Route::delete('/{variant}', [ProductVariantController::class, 'destroy']); // Delete a variant
+});

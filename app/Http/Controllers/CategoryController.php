@@ -23,7 +23,6 @@ class CategoryController extends Controller
     public function store(Request $request)
     {
         try {
-            //  Validate request data
             $validator = Validator::make($request->all(), [
                 'name_translations' => 'required|array',
                 'image_url' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
@@ -33,7 +32,6 @@ class CategoryController extends Controller
                 return $this->validationErrorResponse($validator);
             }
     
-            //  Check if the category name (in English) already exists
             $nameEn = $request->name_translations['en'] ?? null;
             if ($nameEn && Category::where('name_translations->en', $nameEn)->exists()) {
                 return response()->json([
@@ -44,22 +42,16 @@ class CategoryController extends Controller
                 ], 422);
             }
     
-            //  Create category without the image first
             $category = Category::create([
                 'name_translations' => $request->name_translations,
             ]);
     
             if ($request->hasFile('image_url')) {
-                //  Add the image to the 'categories' collection
                 $category->addMedia($request->file('image_url'))
                     ->toMediaCollection('categories');
     
-                // Refresh the model to update data after saving the image
-                $category->refresh();
-    
-                //  Update 'image_url' with the converted WebP image URL
                 $category->update([
-                    'image_url' => $category->getFirstMediaUrl('categories', 'webp'),
+                    'image_url' => $category->getFirstMediaUrl('categories'),
                 ]);
             }
     
@@ -69,14 +61,6 @@ class CategoryController extends Controller
         }
     }
     
-    
-    
-    public function show(Category $category)
-    {
-        $category->image_url = Storage::url($category->image_url);
-        return $this->successResponse('Category retrieved successfully', $category);
-    }
-
     public function update(Request $request, Category $category)
     {
         try {
@@ -84,29 +68,37 @@ class CategoryController extends Controller
                 'name_translations' => 'required|array',
                 'image_url' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
             ]);
-
+    
             if ($validator->fails()) {
                 return $this->validationErrorResponse($validator);
             }
-
+    
             if ($request->hasFile('image_url')) {
-                if ($category->image_url) {
-                    Storage::disk('public')->delete($category->image_url);
-                }
-                $imagePath = $request->file('image_url')->store('categories', 'public');
+                $category->clearMediaCollection('categories');
+    
+                $category->addMedia($request->file('image_url'))
+                    ->toMediaCollection('categories');
+    
+                $category->update([
+                    'image_url' => $category->getFirstMediaUrl('categories'),
+                ]);
             } else {
-                $imagePath = $category->image_url;
+                $category->update([
+                    'name_translations' => $request->name_translations,
+                ]);
             }
-
-            $category->update([
-                'name_translations' => $request->name_translations,
-                'image_url' => $imagePath,
-            ]);
-
+    
             return $this->successResponse('Category updated successfully', $category);
         } catch (\Throwable $e) {
             return $this->errorResponse($e);
         }
+    }
+
+    
+    public function show(Category $category)
+    {
+        $category->image_url = Storage::url($category->image_url);
+        return $this->successResponse('Category retrieved successfully', $category);
     }
 
     public function destroy(Category $category)

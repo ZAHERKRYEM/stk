@@ -2,25 +2,36 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Product;
+use App\Models\ProductVariant;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
-use App\Models\Product;
 
-class ProductController extends Controller
+class ProductVariantController extends Controller
 {
+    /**
+     * Display a listing of the variants for a specific product.
+     */
     public function index()
     {
         try {
-            $products = Product::all();
+            // Eager load the variants relationship with the products
+            $products = Product::with('variants')->get();
+    
+            // Return a success response with the products and their variants
             return $this->successResponse('Products retrieved successfully', $products);
         } catch (\Throwable $e) {
             return $this->errorResponse($e);
         }
     }
 
+    /**
+     * Store a newly created variant for a specific product.
+     */
     public function store(Request $request)
     {
         try {
+            // Validate incoming request data
             $validator = Validator::make($request->all(), [
                 'product_code' => 'required|string|unique:products',
                 'name_translations' => 'required|array',
@@ -33,16 +44,15 @@ class ProductController extends Controller
                 'weight_unit' => 'nullable|string',
                 'barcode' => 'nullable|string'
             ]);
-
+    
             if ($validator->fails()) {
                 return $this->validationErrorResponse($validator);
             }
-
-            // إنشاء المنتج
+    
+            // Create a new product record
             $product = Product::create($request->only([
                 'product_code',
                 'name_translations',
-                'image',
                 'description_translations',
                 'category_id',
                 'country_of_origin',
@@ -51,40 +61,33 @@ class ProductController extends Controller
                 'weight_unit',
                 'barcode'
             ]));
-
-            // إضافة الصورة الرئيسية
+    
+            // If an image is uploaded, add it to the media collection
             if ($request->hasFile('image')) {
                 $product->addMedia($request->file('image'))
-                    ->toMediaCollection('images');
+                    ->toMediaCollection('variant_image'); // Save image in 'variant_image' collection
+                // Update product with the original image URL
                 $product->update([
-                    'image_url' => $product->getFirstMediaUrl('images', 'webp'),
+                    'image_url' => $product->getFirstMediaUrl('variant_image'), // Get URL for the original image
                 ]);
             }
-
-            // إضافة المتغيرات الخاصة بالمنتج (variants) عبر كونترولر الـ Variant
-            if ($request->has('variants')) {
-                app(VariantController::class)->storeVariants($request->variants, $product);
-            }
-
+    
+            // Return a success response with the created product
             return $this->successResponse('Product created successfully', $product, 201);
         } catch (\Throwable $e) {
             return $this->errorResponse($e);
         }
     }
-
-    public function show(Product $product)
-    {
-        return $this->successResponse('Product retrieved successfully', $product);
-    }
-
+    
     public function update(Request $request, Product $product)
     {
         try {
+            // Validate the incoming update request
             $validator = Validator::make($request->all(), [
                 'product_code' => 'required|string|unique:products,product_code,' . $product->id,
                 'name_translations' => 'required|array',
-                'image' => 'nullable|image',
                 'description_translations' => 'required|array',
+                'image' => 'nullable|image',
                 'category_id' => 'required|exists:categories,id',
                 'country_of_origin' => 'required|string',
                 'material_property' => 'nullable|string',
@@ -92,68 +95,83 @@ class ProductController extends Controller
                 'weight_unit' => 'nullable|string',
                 'barcode' => 'nullable|string'
             ]);
-
+    
             if ($validator->fails()) {
                 return $this->validationErrorResponse($validator);
             }
-
-            // تحديث المنتج
+    
+            // Update product data
             $product->update($request->all());
-
-            // تحديث الصورة الرئيسية
+    
+            // If a new image is uploaded, update the product's image
             if ($request->hasFile('image')) {
-                $product->clearMediaCollection('images');
-                $product->addMedia($request->file('image'))->toMediaCollection('images');
+                // Clear the old image from the media collection
+                $product->clearMediaCollection('variant_image');
+                // Add the new image to the media collection
+                $product->addMedia($request->file('image'))->toMediaCollection('variant_image');
             }
-
-            // تحديث المتغيرات الخاصة بالمنتج عبر كونترولر الـ Variant
-            if ($request->has('variants')) {
-                app(VariantController::class)->updateVariants($request->variants, $product);
-            }
-
+    
+            // Return a success response with the updated product
             return $this->successResponse('Product updated successfully', $product);
         } catch (\Throwable $e) {
             return $this->errorResponse($e);
         }
     }
+    
 
-    public function destroy(Product $product)
+    /**
+     * Display a specific variant of a product.
+     */
+    public function show(Product $product, ProductVariant $variant)
+    {
+        return response()->json([
+            'success' => true,
+            'message' => 'Variant retrieved successfully',
+            'data' => $variant
+        ]);
+    }
+
+    public function destroy(Product $product, ProductVariant $variant)
     {
         try {
-            $product->delete();
-            return $this->successResponse('Product deleted successfully');
+            // Delete the media file
+            $media = $variant->getFirstMedia('variant_image');
+            if ($media) {
+                $variant->deleteMedia($media->id);
+            }
+
+            // Delete the variant record
+            $variant->delete();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Variant deleted successfully'
+            ]);
         } catch (\Throwable $e) {
             return $this->errorResponse($e);
         }
     }
 
-    private function successResponse(string $message, $data = null, int $statusCode = 200)
-    {
-        return response()->json([
-            'status' => true,
-            'message' => $message,
-            'data' => $data,
-            'status_code' => $statusCode,
-        ], $statusCode);
-    }
-
+    /**
+     * Handle validation error response.
+     */
     private function validationErrorResponse($validator)
     {
         return response()->json([
-            'status' => false,
-            'message' => 'Validation errors',
-            'data' => $validator->errors(),
-            'status_code' => 422,
+            'success' => false,
+            'message' => 'Validation error',
+            'errors' => $validator->errors()
         ], 422);
     }
 
+    /**
+     * Handle general error response.
+     */
     private function errorResponse(\Throwable $e, int $statusCode = 500)
     {
         return response()->json([
-            'status' => false,
-            'message' => $e->getMessage(),
-            'data' => null,
-            'status_code' => $statusCode,
+            'success' => false,
+            'message' => $e->getMessage()
         ], $statusCode);
     }
 }

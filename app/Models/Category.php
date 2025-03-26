@@ -6,8 +6,6 @@ use Illuminate\Database\Eloquent\Model;
 use Spatie\Translatable\HasTranslations;
 use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\InteractsWithMedia;
-use Spatie\MediaLibrary\MediaCollections\Models\Media;
-use Spatie\Image\Manipulations;
 
 class Category extends Model implements HasMedia
 {
@@ -34,28 +32,4 @@ class Category extends Model implements HasMedia
         $this->addMediaCollection('categories')
             ->useDisk('public'); 
     }
-
-    public function registerMediaConversions(?Media $media = null): void
-    {
-        $this->addMediaConversion('webp')
-            ->format('webp')
-            ->nonQueued();
-    }
-
-    protected static function booted()
-{
-    static::saved(function ($model) {
-        //  Get the first media from the 'categories' collection
-        $media = $model->getFirstMedia('categories');
-        if ($media) {
-            $originalPath = $media->getPath(); // Get the original file path
-            if (file_exists($originalPath)) {
-                unlink($originalPath); //  Delete the original image after conversion
-            }
-        }
-    });
-}
-
-
-
 }

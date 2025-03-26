@@ -15,84 +15,83 @@ class BannerController extends Controller
             $banners = Banner::where('is_active', true)->get()->map(function ($banner) {
                 return [
                     'id' => $banner->id,
-                    'is_active' => $banner->is_active, //  Adding is_active here
-                    'image_url' => $banner->getFirstMediaUrl('banners', 'webp') ?: $banner->getFirstMediaUrl('banners'),
+                    'is_active' => $banner->is_active,
+                    'image_url' => $banner->getFirstMediaUrl('banners'),
                 ];
             });
-
+    
             return $this->successResponse('Banners retrieved successfully', $banners);
         } catch (\Throwable $e) {
             return $this->errorResponse($e);
         }
     }
+    
 
-    //  Create a new banner
     public function store(Request $request)
-    {
-        try {
-            $validator = Validator::make($request->all(), [
-                'image' => 'required|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
-                'is_active' => 'nullable|boolean', //  Adding is_active here
-            ]);
+{
+    try {
+        $validator = Validator::make($request->all(), [
+            'image' => 'required|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
+            'is_active' => 'required|boolean',
+        ]);
 
-            if ($validator->fails()) {
-                return $this->validationErrorResponse($validator);
-            }
-
-            $banner = Banner::create([
-                'is_active' => $request->is_active,
-            ]);
-
-            if ($request->hasFile('image')) {
-                $banner->addMediaFromRequest('image')
-                    ->toMediaCollection('banners', 'public');
-
-                // Update the object after uploading the image
-                $banner->refresh();
-            }
-
-            return $this->successResponse('Banner created successfully', [
-                'id' => $banner->id,
-                'is_active' => $banner->is_active, // 👈 Adding is_active here
-                'image_url' => $banner->getFirstMediaUrl('banners', 'webp') ?: $banner->getFirstMediaUrl('banners'),
-            ], 201);
-        } catch (\Throwable $e) {
-            return $this->errorResponse($e);
+        if ($validator->fails()) {
+            return $this->validationErrorResponse($validator);
         }
-    }
 
-    //  Update an existing banner
-    public function update(Request $request, Banner $banner)
-    {
-        try {
-            $validator = Validator::make($request->all(), [
-                'image' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
-                'is_active' => 'nullable|boolean', // 👈 Adding is_active here
-            ]);
+        $banner = Banner::create([
+            'is_active' => $request->is_active,
+        ]);
 
-            if ($validator->fails()) {
-                return $this->validationErrorResponse($validator);
-            }
+        if ($request->hasFile('image')) {
+            $banner->addMediaFromRequest('image')
+                ->toMediaCollection('banners', 'public');
 
-            $banner->update([
-                'is_active' => $request->is_active, //  Adding is_active here
-            ]);
-
-            if ($request->hasFile('image')) {
-                $banner->clearMediaCollection('banners');
-                $banner->addMediaFromRequest('image')
-                    ->toMediaCollection('banners', 'public');
-            }
-
-            return $this->successResponse('Banner updated successfully', [
-                'id' => $banner->id,
-                'is_active' => $banner->is_active, //  Adding is_active here
-                'image_url' => $banner->getFirstMediaUrl('banners', 'webp') ?: $banner->getFirstMediaUrl('banners'),
-            ]);
-        } catch (\Throwable $e) {
-            return $this->errorResponse($e);
+            // تحديث الرابط بعد الرفع
+            $banner->refresh();
         }
+
+        return $this->successResponse('Banner created successfully', [
+            'id' => $banner->id,
+            'is_active' => $banner->is_active,
+            'image_url' => $banner->getFirstMediaUrl('banners'),
+        ], 201);
+    } catch (\Throwable $e) {
+        return $this->errorResponse($e);
     }
+}
+
+public function update(Request $request, Banner $banner)
+{
+    try {
+        $validator = Validator::make($request->all(), [
+            'image' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
+            'is_active' => 'required|boolean',
+        ]);
+
+        if ($validator->fails()) {
+            return $this->validationErrorResponse($validator);
+        }
+
+        $banner->update([
+            'is_active' => $request->is_active,
+        ]);
+
+        if ($request->hasFile('image')) {
+            $banner->clearMediaCollection('banners');
+            $banner->addMediaFromRequest('image')
+                ->toMediaCollection('banners', 'public');
+        }
+
+        return $this->successResponse('Banner updated successfully', [
+            'id' => $banner->id,
+            'is_active' => $banner->is_active,
+            'image_url' => $banner->getFirstMediaUrl('banners'),
+        ]);
+    } catch (\Throwable $e) {
+        return $this->errorResponse($e);
+    }
+}
 
     //  Delete a banner
     public function destroy(Banner $banner)
