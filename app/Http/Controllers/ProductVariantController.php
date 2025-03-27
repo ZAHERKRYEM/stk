@@ -10,168 +10,159 @@ use Illuminate\Support\Facades\Validator;
 class ProductVariantController extends Controller
 {
     /**
-     * Display a listing of the variants for a specific product.
+     * Display a listing of the product variants for a specific product.
      */
-    public function index()
+    public function index($product_id)
     {
-        try {
-            // Eager load the variants relationship with the products
-            $products = Product::with('variants')->get();
-    
-            // Return a success response with the products and their variants
-            return $this->successResponse('Products retrieved successfully', $products);
-        } catch (\Throwable $e) {
-            return $this->errorResponse($e);
-        }
-    }
+        $variants = ProductVariant::where('product_id', $product_id)->with('product')->paginate(10);
 
-    /**
-     * Store a newly created variant for a specific product.
-     */
-    public function store(Request $request)
-    {
-        try {
-            // Validate incoming request data
-            $validator = Validator::make($request->all(), [
-                'product_code' => 'required|string|unique:products',
-                'name_translations' => 'required|array',
-                'description_translations' => 'required|array',
-                'image' => 'nullable|image',
-                'category_id' => 'required|exists:categories,id',
-                'country_of_origin' => 'required|string',
-                'material_property' => 'nullable|string',
-                'product_category' => 'nullable|string',
-                'weight_unit' => 'nullable|string',
-                'barcode' => 'nullable|string'
-            ]);
-    
-            if ($validator->fails()) {
-                return $this->validationErrorResponse($validator);
-            }
-    
-            // Create a new product record
-            $product = Product::create($request->only([
-                'product_code',
-                'name_translations',
-                'description_translations',
-                'category_id',
-                'country_of_origin',
-                'material_property',
-                'product_category',
-                'weight_unit',
-                'barcode'
-            ]));
-    
-            // If an image is uploaded, add it to the media collection
-            if ($request->hasFile('image')) {
-                $product->addMedia($request->file('image'))
-                    ->toMediaCollection('variant_image'); // Save image in 'variant_image' collection
-                // Update product with the original image URL
-                $product->update([
-                    'image_url' => $product->getFirstMediaUrl('variant_image'), // Get URL for the original image
-                ]);
-            }
-    
-            // Return a success response with the created product
-            return $this->successResponse('Product created successfully', $product, 201);
-        } catch (\Throwable $e) {
-            return $this->errorResponse($e);
-        }
-    }
-    
-    public function update(Request $request, Product $product)
-    {
-        try {
-            // Validate the incoming update request
-            $validator = Validator::make($request->all(), [
-                'product_code' => 'required|string|unique:products,product_code,' . $product->id,
-                'name_translations' => 'required|array',
-                'description_translations' => 'required|array',
-                'image' => 'nullable|image',
-                'category_id' => 'required|exists:categories,id',
-                'country_of_origin' => 'required|string',
-                'material_property' => 'nullable|string',
-                'product_category' => 'nullable|string',
-                'weight_unit' => 'nullable|string',
-                'barcode' => 'nullable|string'
-            ]);
-    
-            if ($validator->fails()) {
-                return $this->validationErrorResponse($validator);
-            }
-    
-            // Update product data
-            $product->update($request->all());
-    
-            // If a new image is uploaded, update the product's image
-            if ($request->hasFile('image')) {
-                // Clear the old image from the media collection
-                $product->clearMediaCollection('variant_image');
-                // Add the new image to the media collection
-                $product->addMedia($request->file('image'))->toMediaCollection('variant_image');
-            }
-    
-            // Return a success response with the updated product
-            return $this->successResponse('Product updated successfully', $product);
-        } catch (\Throwable $e) {
-            return $this->errorResponse($e);
-        }
-    }
-    
-
-    /**
-     * Display a specific variant of a product.
-     */
-    public function show(Product $product, ProductVariant $variant)
-    {
         return response()->json([
             'success' => true,
-            'message' => 'Variant retrieved successfully',
+            'data' => $variants
+        ]);
+    }
+
+    /**
+     * Store a new product variant for a specific product.
+     */
+    public function store(Request $request, $product_id)
+    {
+        // Ensure the product exists
+        $product = Product::findOrFail($product_id);
+
+        $validator = Validator::make($request->all(), [
+            'size'            => ['nullable', 'string', 'max:255'],
+            'price'           => ['required', 'numeric', 'min:0'],
+            'gross_weight'    => ['nullable', 'numeric', 'min:0'],
+            'net_weight'      => ['nullable', 'numeric', 'min:0'],
+            'tare_weight'     => ['nullable', 'numeric', 'min:0'],
+            'standard_weight' => ['nullable', 'numeric', 'min:0'],
+            'free_quantity'   => ['nullable', 'integer', 'min:0'],
+            'packaging'       => ['nullable', 'string', 'max:255'],
+            'box_dimensions'  => ['nullable', 'string', 'max:255'],
+            'box_packing'     => ['nullable', 'string', 'max:255'],
+            'in_stock'        => ['required', 'boolean'],
+            'is_hidden'       => ['required', 'boolean'],
+            'is_new'          => ['required', 'boolean'],
+            'variant_image'   => ['nullable', 'image', 'max:2048'],
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        $variant = $product->variants()->create($validator->validated());
+
+        // Handle image upload
+        if ($request->hasFile('variant_image')) {
+            $variant
+                ->addMediaFromRequest('variant_image')
+                ->toMediaCollection('variant_image');
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => $variant->load('product')
+        ], 201);
+    }
+
+    /**
+     * Display the specified product variant for a specific product.
+     */
+    public function show($product_id, $id)
+    {
+        $variant = ProductVariant::where('product_id', $product_id)->with('product')->find($id);
+
+        if (!$variant) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Product variant not found.'
+            ], 404);
+        }
+
+        return response()->json([
+            'success' => true,
             'data' => $variant
         ]);
     }
 
-    public function destroy(Product $product, ProductVariant $variant)
+    /**
+     * Update the specified product variant for a specific product.
+     */
+    public function update(Request $request, $product_id, $id)
     {
-        try {
-            // Delete the media file
-            $media = $variant->getFirstMedia('variant_image');
-            if ($media) {
-                $variant->deleteMedia($media->id);
-            }
+        $variant = ProductVariant::where('product_id', $product_id)->find($id);
 
-            // Delete the variant record
-            $variant->delete();
-
+        if (!$variant) {
             return response()->json([
-                'success' => true,
-                'message' => 'Variant deleted successfully'
-            ]);
-        } catch (\Throwable $e) {
-            return $this->errorResponse($e);
+                'success' => false,
+                'message' => 'Product variant not found.'
+            ], 404);
         }
+
+        $validator = Validator::make($request->all(), [
+            'size'            => ['nullable', 'string', 'max:255'],
+            'price'           => ['sometimes', 'numeric', 'min:0'],
+            'gross_weight'    => ['nullable', 'numeric', 'min:0'],
+            'net_weight'      => ['nullable', 'numeric', 'min:0'],
+            'tare_weight'     => ['nullable', 'numeric', 'min:0'],
+            'standard_weight' => ['nullable', 'numeric', 'min:0'],
+            'free_quantity'   => ['nullable', 'integer', 'min:0'],
+            'packaging'       => ['nullable', 'string', 'max:255'],
+            'box_dimensions'  => ['nullable', 'string', 'max:255'],
+            'box_packing'     => ['nullable', 'string', 'max:255'],
+            'in_stock'        => ['sometimes', 'boolean'],
+            'is_hidden'       => ['sometimes', 'boolean'],
+            'is_new'          => ['sometimes', 'boolean'],
+            'variant_image'   => ['nullable', 'image', 'max:2048'],
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        $variant->update($validator->validated());
+
+        // Handle image update
+        if ($request->hasFile('variant_image')) {
+            $variant->clearMediaCollection('variant_image');
+            $variant
+                ->addMediaFromRequest('variant_image')
+                ->toMediaCollection('variant_image');
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => $variant->load('product')
+        ]);
     }
 
     /**
-     * Handle validation error response.
+     * Remove the specified product variant.
      */
-    private function validationErrorResponse($validator)
+    public function destroy($product_id, $id)
     {
-        return response()->json([
-            'success' => false,
-            'message' => 'Validation error',
-            'errors' => $validator->errors()
-        ], 422);
-    }
+        $variant = ProductVariant::where('product_id', $product_id)->find($id);
 
-    /**
-     * Handle general error response.
-     */
-    private function errorResponse(\Throwable $e, int $statusCode = 500)
-    {
+        if (!$variant) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Product variant not found.'
+            ], 404);
+        }
+
+        $variant->clearMediaCollection('variant_image');
+        $variant->delete();
+
         return response()->json([
-            'success' => false,
-            'message' => $e->getMessage()
-        ], $statusCode);
+            'success' => true,
+            'message' => 'Product variant deleted successfully.'
+        ]);
     }
 }

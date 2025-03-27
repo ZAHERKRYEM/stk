@@ -10,6 +10,7 @@ use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\BannerController;
 
+
 Route::middleware(['auth:sanctum', PermissionMiddleware::class . ':c-category'])->post('/categories', [CategoryController::class, 'store']);
 Route::get('/categories', [CategoryController::class, 'index']);
 Route::middleware(['auth:sanctum', PermissionMiddleware::class . ':u-category'])->put('/categories/{id}', [CategoryController::class, 'update']);
@@ -31,7 +32,6 @@ Route::post('/login', [AuthController::class, 'login']);
 Route::middleware('auth:sanctum')->post('/logout', [AuthController::class, 'logout']);
 Route::middleware(['auth:sanctum',SuperAdminMiddleware::class])->post('/register', [AuthController::class, 'register']);
 Route::post('/registeragent', [AuthController::class, 'registeragent']);
-
 
 use App\Http\Controllers\ProductVariantController;
 

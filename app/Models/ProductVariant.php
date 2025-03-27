@@ -41,8 +41,6 @@ class ProductVariant extends Model implements HasMedia
         return $this->belongsTo(Product::class);
     }
 
-    // Removed media conversion to WebP
-
     public function getImageUrlAttribute()
     {
         return $this->getFirstMediaUrl('variant_image') ?: null;
