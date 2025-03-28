@@ -1,16 +1,22 @@
-<?php  
+<?php
 
-namespace App\Models;  
+namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;  
-use Illuminate\Database\Eloquent\Model;  
+use Illuminate\Database\Eloquent\Model;
+use Spatie\MediaLibrary\HasMedia;
+use Spatie\MediaLibrary\InteractsWithMedia;
 
-class Banner extends Model  
-{  
-    use HasFactory;  
+class Banner extends Model implements HasMedia
+{
+    use InteractsWithMedia;
 
-    protected $fillable = [  
-        'is_active',  
-        'image_url',  
-    ];  
-}  
+    protected $fillable = [
+        'is_active',
+    ];
+
+    public function registerMediaCollections(): void
+    {
+        $this->addMediaCollection('banners')
+            ->useDisk('public');
+    }
+}

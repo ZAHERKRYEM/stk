@@ -3,131 +3,110 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Validator;
-use Illuminate\Support\Facades\File;
 use App\Models\Banner;
-use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Validator;
+
 class BannerController extends Controller
 {
-    public function store(Request $request)
-    {
-        try {
-            $validator = Validator::make($request->all(), [
-                'image' => 'required|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
-                'is_active' => 'boolean',
-            ]);
-
-            if ($validator->fails()) {
-                return $this->validationErrorResponse($validator);
-            }
-
-            $image = $request->file('image');
-            $imageName = Str::random(40).'.'.$image->getClientOriginalExtension();
-            $image->move(public_path('storage/banners'), $imageName);
-
-            $banner = Banner::create([
-                'is_active' => $request->input('is_active', true),
-                'image_url' => 'storage/banners/' . $imageName,
-            ]);
-
-            return $this->successResponse('تم رفع الصورة بنجاح', $this->formatBanner($banner), 201);
-        } catch (\Throwable $e) {
-            return $this->errorResponse($e);
-        }
-    }
-
+    //  Retrieve all active banners
     public function index()
     {
         try {
-            $banners = Banner::all()->map(fn($banner) => $this->formatBanner($banner));
-            return $this->successResponse('تم جلب الصور بنجاح', $banners);
+            $banners = Banner::where('is_active', true)->get()->map(function ($banner) {
+                return [
+                    'id' => $banner->id,
+                    'is_active' => $banner->is_active,
+                    'image_url' => $banner->getFirstMediaUrl('banners'),
+                ];
+            });
+    
+            return $this->successResponse('Banners retrieved successfully', $banners);
         } catch (\Throwable $e) {
             return $this->errorResponse($e);
         }
     }
+    
 
-    public function show($id)
-    {
-        try {
-            $banner = Banner::find($id);
-            if (!$banner) {
-                return $this->errorResponse('لم يتم العثور على الصورة', 404);
-            }
-            return $this->successResponse('تم جلب الصورة بنجاح', $this->formatBanner($banner));
-        } catch (\Throwable $e) {
-            return $this->errorResponse($e);
+    public function store(Request $request)
+{
+    try {
+        $validator = Validator::make($request->all(), [
+            'image' => 'required|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
+            'is_active' => 'nullable|boolean',
+        ]);
+
+        if ($validator->fails()) {
+            return $this->validationErrorResponse($validator);
         }
-    }
 
-    public function update(Request $request, $id)
-    {
-        try {
-            $banner = Banner::find($id);
-            if (!$banner) {
-                return $this->errorResponse('لم يتم العثور على الصورة', 404);
-            }
+        $banner = Banner::create([
+            'is_active' => $request->is_active,
+        ]);
 
-            $validator = Validator::make($request->all(), [
-                'image' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
-                'is_active' => 'boolean',
-            ]);
+        if ($request->hasFile('image')) {
+            $banner->addMediaFromRequest('image')
+                ->toMediaCollection('banners', 'public');
 
-            if ($validator->fails()) {
-                return $this->validationErrorResponse($validator);
-            }
-
-            if ($request->hasFile('image')) {
-                if (file_exists(public_path($banner->image_url))) {
-                    unlink(public_path($banner->image_url));
-                }
-                $image = $request->file('image');
-                $imageName = Str::random(40).'.'.$image->getClientOriginalExtension();
-                $image->move(public_path('storage/banners'), $imageName);
-                $banner->image_url = 'storage/banners/' . $imageName;
-            }
-
-            if ($request->has('is_active')) {
-                $banner->is_active = $request->input('is_active');
-            }
-
-            $banner->save();
-
-            return $this->successResponse('تم تحديث الصورة بنجاح', $this->formatBanner($banner));
-        } catch (\Throwable $e) {
-            return $this->errorResponse($e);
+            // تحديث الرابط بعد الرفع
+            $banner->refresh();
         }
-    }
 
-    public function destroy($id)
-    {
-        try {
-            $banner = Banner::find($id);
-            if (!$banner) {
-                return $this->errorResponse('لم يتم العثور على الصورة', 404);
-            }
-
-            if (file_exists(public_path($banner->image_url))) {
-                unlink(public_path($banner->image_url));
-            }
-            $banner->delete();
-
-            return $this->successResponse('تم حذف الصورة بنجاح');
-        } catch (\Throwable $e) {
-            return $this->errorResponse($e);
-        }
-    }
-
-    private function formatBanner($banner)
-    {
-        return [
+        return $this->successResponse('Banner created successfully', [
             'id' => $banner->id,
             'is_active' => $banner->is_active,
-            'image_url' => url($banner->image_url),
-            'created_at' => $banner->created_at,
-            'updated_at' => $banner->updated_at,
-        ];
+            'image_url' => $banner->getFirstMediaUrl('banners'),
+        ], 201);
+    } catch (\Throwable $e) {
+        return $this->errorResponse($e);
+    }
+}
+
+public function update(Request $request, Banner $banner)
+{
+    try {
+        $validator = Validator::make($request->all(), [
+            'image' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
+            'is_active' => 'required|boolean',
+        ]);
+
+        if ($validator->fails()) {
+            return $this->validationErrorResponse($validator);
+        }
+
+        $banner->update([
+            'is_active' => $request->is_active,
+        ]);
+
+        if ($request->hasFile('image')) {
+            $banner->clearMediaCollection('banners');
+            $banner->addMediaFromRequest('image')
+                ->toMediaCollection('banners', 'public');
+        }
+
+        return $this->successResponse('Banner updated successfully', [
+            'id' => $banner->id,
+            'is_active' => $banner->is_active,
+            'image_url' => $banner->getFirstMediaUrl('banners'),
+        ]);
+    } catch (\Throwable $e) {
+        return $this->errorResponse($e);
+    }
+}
+
+    //  Delete a banner
+    public function destroy(Banner $banner)
+    {
+        try {
+            $banner->clearMediaCollection('banners');
+            $banner->delete();
+
+            return $this->successResponse('Banner deleted successfully');
+        } catch (\Throwable $e) {
+            return $this->errorResponse($e);
+        }
     }
 
+    //  Function to return a successful response
     private function successResponse(string $message, $data = null, int $statusCode = 200)
     {
         return response()->json([
@@ -138,21 +117,25 @@ class BannerController extends Controller
         ], $statusCode);
     }
 
+    //  Function to return validation errors
     private function validationErrorResponse($validator)
     {
         return response()->json([
             'status' => false,
-            'message' => 'أخطاء في التحقق من البيانات',
+            'message' => 'Validation errors',
             'data' => $validator->errors(),
             'status_code' => 422,
         ], 422);
     }
 
-    private function errorResponse($error, int $statusCode = 500)
+    //  Function to return an error response
+    private function errorResponse(\Throwable $e, int $statusCode = 500)
     {
+        logger()->error($e->getMessage());
+
         return response()->json([
             'status' => false,
-            'message' => is_string($error) ? $error : $error->getMessage(),
+            'message' => $e->getMessage(),
             'data' => null,
             'status_code' => $statusCode,
         ], $statusCode);

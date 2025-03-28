@@ -4,141 +4,114 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Storage;
 use App\Models\Category;
-use Illuminate\Support\Str;
 
 class CategoryController extends Controller
 {
+    public function index(Request $request)
+    {
+        try {
+            $language = $request->query('language', 'en');
+            $categories = Category::where('name_translations', 'like', '%"' . $language . '":%')->get();
+            return $this->successResponse('Categories retrieved successfully', $categories);
+        } catch (\Throwable $e) {
+            return $this->errorResponse($e);
+        }
+    }
+
     public function store(Request $request)
     {
         try {
             $validator = Validator::make($request->all(), [
                 'name_translations' => 'required|array',
-                'image' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
+                'image_url' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
             ]);
-
+    
             if ($validator->fails()) {
                 return $this->validationErrorResponse($validator);
             }
-
-            $image = $request->file('image');
-            $imageName = Str::random(40).'.'.$image->getClientOriginalExtension();
-            $image->move(public_path('storage/categories'), $imageName);
-
-
+    
+            $nameEn = $request->name_translations['en'] ?? null;
+            if ($nameEn && Category::where('name_translations->en', $nameEn)->exists()) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Category name already exists',
+                    'data' => null,
+                    'status_code' => 422,
+                ], 422);
+            }
+    
             $category = Category::create([
-                'name_translations' => json_encode($request->name_translations, JSON_UNESCAPED_UNICODE),
-                'image_url' => 'storage/categories/' . $imageName,
+                'name_translations' => $request->name_translations,
             ]);
-
-            return $this->successResponse('تم إنشاء الفئة بنجاح', $this->formatCategory($category), 201);
-        } catch (\Throwable $e) {
-            return $this->errorResponse($e);
-        }
-    }
-
-    public function index()
-    {
-        try {
-            $categories = Category::all()->map(function ($category) {
-                return $this->formatCategory($category);
-            });
-
-            return $this->successResponse('تم جلب الفئات بنجاح', $categories);
-        } catch (\Throwable $e) {
-            return $this->errorResponse($e);
-        }
-    }
-
-    public function show($id)
-    {
-        try {
-            $category = Category::find($id);
-            if (!$category) {
-                return $this->errorResponse('لم يتم العثور على الفئة', 404);
+    
+            if ($request->hasFile('image_url')) {
+                $category->addMedia($request->file('image_url'))
+                    ->toMediaCollection('categories');
+    
+                $category->update([
+                    'image_url' => $category->getFirstMediaUrl('categories'),
+                ]);
             }
-
-            return $this->successResponse('تم جلب الفئة بنجاح', $this->formatCategory($category));
+    
+            return $this->successResponse('Category created successfully', $category, 201);
         } catch (\Throwable $e) {
             return $this->errorResponse($e);
         }
     }
-
-    public function update(Request $request, $id)
+    
+    public function update(Request $request, Category $category)
     {
         try {
-            $category = Category::find($id);
-            if (!$category) {
-                return $this->errorResponse('لم يتم العثور على الفئة', 404);
-            }
-
             $validator = Validator::make($request->all(), [
-                'name_translations' => 'sometimes|required|array',
-                'image' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
+                'name_translations' => 'required|array',
+                'image_url' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
             ]);
-
+    
             if ($validator->fails()) {
                 return $this->validationErrorResponse($validator);
             }
-
-            if ($request->has('name_translations')) {
-                $category->name_translations = json_encode($request->name_translations, JSON_UNESCAPED_UNICODE);
+    
+            if ($request->hasFile('image_url')) {
+                $category->clearMediaCollection('categories');
+    
+                $category->addMedia($request->file('image_url'))
+                    ->toMediaCollection('categories');
+    
+                $category->update([
+                    'image_url' => $category->getFirstMediaUrl('categories'),
+                ]);
+            } else {
+                $category->update([
+                    'name_translations' => $request->name_translations,
+                ]);
             }
-
-            if ($request->hasFile('image')) {
-                if ($category->image_url) {
-                    $oldImagePath = public_path('storage/categories/' . basename($category->image_url));
-                    if (file_exists($oldImagePath)) {
-                        unlink($oldImagePath);
-                    }
-                }
-
-                $image = $request->file('image');
-                $imageName = Str::random(40) . '.' . $image->getClientOriginalExtension();
-                $image->move(public_path('storage/categories'), $imageName);
-                $category->image_url = 'storage/categories/' . $imageName;
-            }
-
-            $category->save();
-
-            return $this->successResponse('تم تحديث الفئة بنجاح', $this->formatCategory($category));
+    
+            return $this->successResponse('Category updated successfully', $category);
         } catch (\Throwable $e) {
             return $this->errorResponse($e);
         }
     }
 
-    public function destroy($id)
+    
+    public function show(Category $category)
+    {
+        $category->image_url = Storage::url($category->image_url);
+        return $this->successResponse('Category retrieved successfully', $category);
+    }
+
+    public function destroy(Category $category)
     {
         try {
-            $category = Category::find($id);
-            if (!$category) {
-                return $this->errorResponse('لم يتم العثور على الفئة', 404);
-            }
-
             if ($category->image_url) {
-                $imagePath = public_path('storage/categories/' . basename($category->image_url));
-                if (file_exists($imagePath)) {
-                    unlink($imagePath);
-                }
+                Storage::disk('public')->delete($category->image_url);
             }
-
             $category->delete();
-
-            return $this->successResponse('تم حذف الفئة بنجاح');
+            return $this->successResponse('Category deleted successfully');
         } catch (\Throwable $e) {
             return $this->errorResponse($e);
         }
-    }
-
-    private function formatCategory($category)
-    {
-        return [
-            'id' => $category->id,
-            'name_translations' => json_decode($category->name_translations, true),
-            'image_url' => url($category->image_url),
-            'created_at' => $category->created_at,
-            'updated_at' => $category->updated_at,
-        ];
     }
 
     private function successResponse(string $message, $data = null, int $statusCode = 200)
@@ -155,17 +128,17 @@ class CategoryController extends Controller
     {
         return response()->json([
             'status' => false,
-            'message' => 'أخطاء في التحقق من البيانات',
+            'message' => 'Validation errors',
             'data' => $validator->errors(),
             'status_code' => 422,
         ], 422);
     }
 
-    private function errorResponse($error, int $statusCode = 500)
+    private function errorResponse(\Throwable $e, int $statusCode = 500)
     {
         return response()->json([
             'status' => false,
-            'message' => is_string($error) ? $error : $error->getMessage(),
+            'message' => $e->getMessage(),
             'data' => null,
             'status_code' => $statusCode,
         ], $statusCode);

@@ -24,48 +24,46 @@ class ProductController extends Controller
             $validator = Validator::make($request->all(), [
                 'product_code' => 'required|string|unique:products',
                 'name_translations' => 'required|array',
-                'description_translations' => 'nullable|array',
-                'price' => 'required|numeric',
+                'description_translations' => 'required|array',
+                'image' => 'nullable|image',
                 'category_id' => 'required|exists:categories,id',
-                'image' => 'nullable|image', 
-                'gallery' => 'nullable|array',  
-                'sizes' => 'nullable|array',
-                'country_of_origin' => 'nullable|string',
+                'country_of_origin' => 'required|string',
                 'material_property' => 'nullable|string',
                 'product_category' => 'nullable|string',
-                'gross_weight' => 'nullable|numeric',
-                'net_weight' => 'nullable|numeric',
-                'tare_weight' => 'nullable|numeric',
-                'standard_weight' => 'nullable|numeric',
-                'free_quantity' => 'nullable|integer',
                 'weight_unit' => 'nullable|string',
-                'packaging' => 'nullable|string',
-                'supplier_name' => 'nullable|string',
-                'box_gross_weight' => 'nullable|numeric',
-                'box_dimensions' => 'nullable|string',
-                'box_packing' => 'nullable|string',
-                'in_stock' => 'nullable|boolean',
-                'is_hidden' => 'nullable|boolean',
-                'is_new' => 'nullable|boolean',
+                'barcode' => 'nullable|string'
             ]);
 
             if ($validator->fails()) {
                 return $this->validationErrorResponse($validator);
             }
 
-          
-            $product = Product::create($request->all());
+            // إنشاء المنتج
+            $product = Product::create($request->only([
+                'product_code',
+                'name_translations',
+                'image',
+                'description_translations',
+                'category_id',
+                'country_of_origin',
+                'material_property',
+                'product_category',
+                'weight_unit',
+                'barcode'
+            ]));
 
-       
+            // إضافة الصورة الرئيسية
             if ($request->hasFile('image')) {
-                $product->addMedia($request->file('image'))->toMediaCollection('images');
+                $product->addMedia($request->file('image'))
+                    ->toMediaCollection('images');
+                $product->update([
+                    'image_url' => $product->getFirstMediaUrl('images', 'webp'),
+                ]);
             }
 
-        
-            if ($request->hasFile('gallery')) {
-                foreach ($request->file('gallery') as $image) {
-                    $product->addMedia($image)->toMediaCollection('gallery');
-                }
+            // إضافة المتغيرات الخاصة بالمنتج (variants) عبر كونترولر الـ Variant
+            if ($request->has('variants')) {
+                app(ProductVariantController::class)->store($request->variants, $product);
             }
 
             return $this->successResponse('Product created successfully', $product, 201);
@@ -85,50 +83,32 @@ class ProductController extends Controller
             $validator = Validator::make($request->all(), [
                 'product_code' => 'required|string|unique:products,product_code,' . $product->id,
                 'name_translations' => 'required|array',
-                'description_translations' => 'nullable|array',
-                'price' => 'required|numeric',
-                'category_id' => 'required|exists:categories,id',
                 'image' => 'nullable|image',
-                'gallery' => 'nullable|array',
-                'sizes' => 'nullable|array',
-                'country_of_origin' => 'nullable|string',
+                'description_translations' => 'required|array',
+                'category_id' => 'required|exists:categories,id',
+                'country_of_origin' => 'required|string',
                 'material_property' => 'nullable|string',
                 'product_category' => 'nullable|string',
-                'gross_weight' => 'nullable|numeric',
-                'net_weight' => 'nullable|numeric',
-                'tare_weight' => 'nullable|numeric',
-                'standard_weight' => 'nullable|numeric',
-                'free_quantity' => 'nullable|integer',
                 'weight_unit' => 'nullable|string',
-                'packaging' => 'nullable|string',
-                'supplier_name' => 'nullable|string',
-                'box_gross_weight' => 'nullable|numeric',
-                'box_dimensions' => 'nullable|string',
-                'box_packing' => 'nullable|string',
-                'in_stock' => 'nullable|boolean',
-                'is_hidden' => 'nullable|boolean',
-                'is_new' => 'nullable|boolean',
+                'barcode' => 'nullable|string'
             ]);
 
             if ($validator->fails()) {
                 return $this->validationErrorResponse($validator);
             }
 
-   
+            // تحديث المنتج
             $product->update($request->all());
 
-  
+            // تحديث الصورة الرئيسية
             if ($request->hasFile('image')) {
-                $product->clearMediaCollection('images');  
+                $product->clearMediaCollection('images');
                 $product->addMedia($request->file('image'))->toMediaCollection('images');
             }
 
-   
-            if ($request->hasFile('gallery')) {
-                $product->clearMediaCollection('gallery'); 
-                foreach ($request->file('gallery') as $image) {
-                    $product->addMedia($image)->toMediaCollection('gallery');
-                }
+            // تحديث المتغيرات الخاصة بالمنتج عبر كونترولر الـ Variant
+            if ($request->has('variants')) {
+                app(ProductVariantController::class)->update($request->variants, $product,$product->id);
             }
 
             return $this->successResponse('Product updated successfully', $product);

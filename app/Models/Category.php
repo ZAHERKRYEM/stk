@@ -4,10 +4,12 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Spatie\Translatable\HasTranslations;
+use Spatie\MediaLibrary\HasMedia;
+use Spatie\MediaLibrary\InteractsWithMedia;
 
-class Category extends Model 
+class Category extends Model implements HasMedia
 {
-    use HasTranslations;
+    use HasTranslations, InteractsWithMedia;
 
     protected $fillable = [
         'name_translations',
@@ -24,8 +26,10 @@ class Category extends Model
     {
         return $this->hasMany(Product::class);
     }
-    
 
-
-
+    public function registerMediaCollections(): void
+    {
+        $this->addMediaCollection('categories')
+            ->useDisk('public'); 
+    }
 }
